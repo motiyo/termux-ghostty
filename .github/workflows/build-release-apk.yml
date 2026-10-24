@@ -1,0 +1,82 @@
+name: Build Release APK (test)
+
+# Test-only release build: no GitHub Release is created, the APK is only uploaded
+# as a workflow artifact. Signed with the repo testkey (same signature as the
+# debug build) so it can be installed as an in-place upgrade.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+
+      - name: Configure Android SDK
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            export ANDROID_HOME=/usr/local/lib/android/sdk
+            echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+            echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          fi
+          echo "SDK: $ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+          ls "$ANDROID_HOME/build-tools" || true
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          for pkg in \
+            "platform-tools" \
+            "platforms;android-36" \
+            "platforms;android-37.1" \
+            "build-tools;35.0.0" \
+            "build-tools;36.0.0" \
+            "build-tools;37.0.0" \
+            "ndk;29.0.14206865" \
+            "cmake;3.22.1" ; do
+            echo "--- installing $pkg"
+            sdkmanager --install "$pkg" || echo "!! failed: $pkg"
+          done
+          sdkmanager --list_installed | sed -n '1,60p'
+
+      - name: Install Zig 0.16.0
+        run: |
+          set -euo pipefail
+          curl -sSLo zig.tar.xz https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz
+          tar -xf zig.tar.xz
+          echo "$PWD/zig-x86_64-linux-0.16.0" >> "$GITHUB_PATH"
+          ./zig-x86_64-linux-0.16.0/zig version
+
+      - name: Build release APK
+        run: |
+          set -euo pipefail
+          zig version
+          java -version
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/29.0.14206865"
+          export ANDROID_USER_HOME="$PWD/.android"
+          export ZIG_EXECUTABLE="$(command -v zig)"
+          export TERMUX_APP_VERSION_NAME="4.13.1+fix1r"
+          export TERMUX_APK_VERSION_TAG="v4.13.1+fix1r"
+          export TERMUX_SPLIT_APKS_FOR_RELEASE_BUILDS="1"
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: termux_release_test
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 14
