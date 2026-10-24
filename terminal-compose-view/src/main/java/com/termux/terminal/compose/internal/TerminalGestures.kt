@@ -231,7 +231,7 @@ private fun handleGestureEvent(
         scrollState.isPinchZoom = true
     }
     if (scrollState.isPinchZoom) {
-        return handlePinchZoom(event, scaleAccumulator, context)
+        return handlePinchZoom(event, scaleAccumulator)
     }
     if (scrollState.isHorizontalSwipe) return scaleAccumulator
     scrollState.trackPan(event, touchSlop)
@@ -265,22 +265,13 @@ internal fun applyPinchZoomStep(
 
 private fun handlePinchZoom(
     event: PointerEvent,
-    scaleAccumulator: Float,
-    context: GestureContext
+    scaleAccumulator: Float
 ): Float {
+    // Pinch-to-zoom font resizing is intentionally disabled. The gesture is still claimed so
+    // that a two-finger pinch cannot leak into parent scroll containers, but the font size is
+    // never changed; it is controlled from the settings screen only.
     event.changes.forEach { if (it.positionChanged()) it.consume() }
-    val zoomChange = event.calculateZoom()
-    return applyPinchZoomStep(
-        zoomChange = zoomChange,
-        scaleAccumulator = scaleAccumulator,
-        currentFontSize = context.fontSizeState.intValue,
-        minFontSize = context.config.minimumFontSize,
-        maxFontSize = context.config.maximumFontSize,
-        onFontSizeChange = { newSize ->
-            context.fontSizeState.intValue = newSize
-            context.onFontSizeChange(newSize)
-        }
-    )
+    return scaleAccumulator
 }
 
 /** Applies vertical scroll through backend-routed incremental deltas. */

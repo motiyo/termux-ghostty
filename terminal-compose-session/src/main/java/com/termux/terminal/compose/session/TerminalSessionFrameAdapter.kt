@@ -35,25 +35,45 @@ class TerminalSessionFrameStore {
     private val renderCache = RenderFrameCache()
     private val frameAdapter = TerminalSessionFrameAdapter()
     private var frame: TerminalFrame? = null
+    private var renderedCursorBlinkingEnabled = false
+    private var renderedCursorBlinkState = false
 
     fun apply(
         frameDelta: com.termux.terminal.FrameDelta,
         state: TerminalFrameSessionState
-    ): ApplyResult = when (val result = renderCache.apply(frameDelta)) {
-        RenderFrameCache.ApplyResult.APPLIED -> {
-            val snapshot = renderCache.getSnapshotForRender(
-                state.cursorBlinkingEnabled,
-                state.cursorBlinkState
-            ) ?: return ApplyResult.NEEDS_FULL_REFRESH
-            frame = frameAdapter.build(snapshot, frameDelta.viewportLinkSnapshot, state)
-            ApplyResult.UPDATED
+    ): ApplyResult {
+        val result = renderCache.apply(frameDelta)
+        // A cursor-blink toggle changes no terminal content, so the worker publishes no new
+        // frame and this delta is classified as older/duplicate. The blink state is not part
+        // of the published snapshot either: it is applied by getSnapshotForRender(). Rebuild
+        // the frame whenever the blink state it was built from differs from the session's.
+        val blinkStateChanged = state.cursorBlinkingEnabled != renderedCursorBlinkingEnabled ||
+            state.cursorBlinkState != renderedCursorBlinkState
+        if (result == RenderFrameCache.ApplyResult.APPLIED ||
+            (result == RenderFrameCache.ApplyResult.IGNORED_OLDER_OR_DUPLICATE &&
+                blinkStateChanged && frame != null)
+        ) {
+            return publishFrame(frameDelta, state)
         }
-        RenderFrameCache.ApplyResult.IGNORED_OLDER_OR_DUPLICATE -> ApplyResult.IGNORED
-        else -> if (result.requiresFullRefresh()) {
+        return if (result.requiresFullRefresh()) {
             ApplyResult.NEEDS_FULL_REFRESH
         } else {
             ApplyResult.IGNORED
         }
+    }
+
+    private fun publishFrame(
+        frameDelta: com.termux.terminal.FrameDelta,
+        state: TerminalFrameSessionState
+    ): ApplyResult {
+        val snapshot = renderCache.getSnapshotForRender(
+            state.cursorBlinkingEnabled,
+            state.cursorBlinkState
+        ) ?: return ApplyResult.NEEDS_FULL_REFRESH
+        frame = frameAdapter.build(snapshot, frameDelta.viewportLinkSnapshot, state)
+        renderedCursorBlinkingEnabled = state.cursorBlinkingEnabled
+        renderedCursorBlinkState = state.cursorBlinkState
+        return ApplyResult.UPDATED
     }
 
     fun currentFrame(): TerminalFrame? = frame
@@ -61,6 +81,8 @@ class TerminalSessionFrameStore {
     fun clear() {
         renderCache.reset()
         frame = null
+        renderedCursorBlinkingEnabled = false
+        renderedCursorBlinkState = false
     }
 }
 

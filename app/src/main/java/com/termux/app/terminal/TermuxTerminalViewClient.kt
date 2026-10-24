@@ -158,12 +158,8 @@ class TermuxTerminalViewClient(
     }
 
     override fun onScale(scale: Float): Float {
-        if (scale < 0.9f || scale > 1.1f) {
-            val increase = scale > 1f
-            changeFontSize(increase)
-            return 1.0f
-        }
-        return scale
+        // Pinch-to-zoom font resizing is disabled; see TerminalGestures.handlePinchZoom().
+        return 1.0f
     }
 
     override fun onSingleTapUp(e: MotionEvent): Boolean {

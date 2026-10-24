@@ -172,8 +172,8 @@ data class TermuxSettings(
     @SerialName("fullscreen") val fullscreen: Boolean = false,
     @SerialName("bell-character") val bellBehaviour: BellBehaviour = BellBehaviour.VIBRATE,
     @SerialName("delete-tmpdir-files-older-than-x-days-on-exit") val deleteTmpdirFilesOlderThanXDaysOnExit: Int = 3,
-    /** 0 disables blinking. */
-    @SerialName("terminal-cursor-blink-rate") val terminalCursorBlinkRate: Int = 0,
+    /** 0 disables blinking. Defaults to a 500 ms blink so the cursor is visible as blinking. */
+    @SerialName("terminal-cursor-blink-rate") val terminalCursorBlinkRate: Int = 500,
     @SerialName("terminal-cursor-style") val terminalCursorStyle: CursorStyle = CursorStyle.BLOCK,
     @SerialName("terminal-margin-horizontal") val terminalMarginHorizontal: Int = 3,
     @SerialName("terminal-margin-vertical") val terminalMarginVertical: Int = 0,
