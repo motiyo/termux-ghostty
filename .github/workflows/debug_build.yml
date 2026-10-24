@@ -20,6 +20,12 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@v3
+        with:
+          # android-nixpkgs builds android-sdk-env by running the Android CLI, which
+          # downloads itself from dl.google.com. The Nix sandbox has no network, so the
+          # build failed with "Temporary failure in name resolution".
+          extra-conf: |
+            sandbox = false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
