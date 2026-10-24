@@ -5,6 +5,9 @@ name: Build Release APK (test)
 # debug build) so it can be installed as an in-place upgrade.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - release/fix1-test
 
 permissions:
   contents: read
