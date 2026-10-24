@@ -45,8 +45,8 @@ android {
     defaultConfig {
         minSdkVersion project.properties.minSdkVersion.toInteger()
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
-        versionCode 141
-        versionName "4.13.1+fix1"
+        versionCode 142
+        versionName "4.13.1+fix1r"
 
         if (appVersionName) versionName = appVersionName
         validateVersionName(versionName)
@@ -105,19 +105,13 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled true
+            // Test build: R8 off to avoid stripping the newer terminal-compose modules,
+            // and signed with the repo testkey so it can upgrade the installed debug APK
+            // in place (identical signature) without uninstalling or losing data.
+            minifyEnabled false
             shrinkResources false // Reproducible builds
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            def keystoreFile = System.getenv("KEYSTORE_FILE")
-            if (keystoreFile) {
-                def ksFile = new File(keystoreFile)
-                if (!ksFile.isAbsolute()) {
-                    ksFile = rootProject.file(keystoreFile)
-                }
-                if (ksFile.exists()) {
-                    signingConfig signingConfigs.release
-                }
-            }
+            signingConfig signingConfigs.debug
         }
 
         debug {
