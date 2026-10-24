@@ -403,6 +403,15 @@ internal class TerminalRenderPlanner {
             linkSegments = linkSegments,
             decorations = decorations
         )
+        planTextDecorations(
+            frame = frame,
+            snapshot = snapshot,
+            rowIndex = rowIndex,
+            row = row,
+            selection = selection,
+            cursor = cursor,
+            decorations = decorations
+        )
         return TerminalRenderRowPlan(
             cellBackgrounds = cellBackgrounds.toList(),
             cursorQuads = cursorQuads.toList(),
@@ -484,6 +493,72 @@ internal class TerminalRenderPlanner {
                     style = style,
                     styleFlags = if (overlayReverse) GlesStyleFlagOverlayReverse else 0
                 )
+            }
+            column = cellEnd
+        }
+    }
+
+    @Suppress("LongParameterList")
+    private fun planTextDecorations(
+        frame: TerminalFrame,
+        snapshot: GlesTerminalSnapshot,
+        rowIndex: Int,
+        row: com.termux.terminal.compose.TerminalRow,
+        selection: IntRange?,
+        cursor: TerminalCursor,
+        decorations: MutableList<TerminalQuad>
+    ) {
+        val metrics = snapshot.metrics
+        val cellWidth = metrics.cellWidthPx
+        val baseline = metrics.cellHeightPx
+        val thickness = maxOf(1f, (snapshot.visual.fontSizePx / 14f).toInt().toFloat())
+        val underlineBottom = baseline - maxOf(1f, thickness * 0.5f)
+        val underlineTop = underlineBottom - thickness
+        val strikeCenter = baseline * 0.62f
+
+        var column = 0
+        val maxColumn = minOf(frame.columns, row.columns)
+        while (column < maxColumn) {
+            val displayWidth = row.cellDisplayWidth(column)
+            if (displayWidth <= 0) {
+                column++
+                continue
+            }
+            val cellEnd = minOf(maxColumn, column + displayWidth)
+            val style = row.style(column)
+            val effect = TextStyle.decodeEffect(style)
+            val underline = effect and TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE != 0
+            val strikeThrough = effect and TextStyle.CHARACTER_ATTRIBUTE_STRIKETHROUGH != 0
+            if (underline || strikeThrough) {
+                val insideSelection = selection != null &&
+                    column <= selection.last && cellEnd - 1 >= selection.first
+                val cursorInCell = cursor.visible && frame.topRow + rowIndex == cursor.row &&
+                    cursor.column in column until cellEnd
+                val overlayReverse = insideSelection ||
+                    (cursorInCell && cursor.style == TerminalCursor.STYLE_BLOCK)
+                val styleFlags = if (overlayReverse) GlesStyleFlagOverlayReverse else 0
+                if (underline) {
+                    decorations += TerminalQuad(
+                        left = column * cellWidth,
+                        top = underlineTop,
+                        right = cellEnd * cellWidth,
+                        bottom = underlineBottom,
+                        argb = 0,
+                        style = style,
+                        styleFlags = styleFlags
+                    )
+                }
+                if (strikeThrough) {
+                    decorations += TerminalQuad(
+                        left = column * cellWidth,
+                        top = strikeCenter - thickness * 0.5f,
+                        right = cellEnd * cellWidth,
+                        bottom = strikeCenter + thickness * 0.5f,
+                        argb = 0,
+                        style = style,
+                        styleFlags = styleFlags
+                    )
+                }
             }
             column = cellEnd
         }
