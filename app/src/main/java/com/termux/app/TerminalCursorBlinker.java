@@ -16,6 +16,7 @@ public final class TerminalCursorBlinker {
     private TerminalSession mSession;
     private Runnable mRunnable;
     private int mBlinkRate;
+    private int mRunningRate = -1;
 
     public TerminalCursorBlinker(Runnable onStateChanged) {
         mOnStateChanged = onStateChanged;
@@ -39,8 +40,15 @@ public final class TerminalCursorBlinker {
     }
 
     public void setState(boolean start, boolean startOnlyIfCursorEnabled) {
-        stop();
         TerminalSession session = mSession;
+        if (start && mRunnable != null && mRunningRate == mBlinkRate
+            && session != null && session.hasActiveTerminalBackend()) {
+            // Already blinking for this session with this rate. Restarting here would reset the
+            // blink phase, and this method is called from onResume(), onTerminalReady() and
+            // onCurrentSessionDisplayed(), which made the cursor appear to flicker randomly.
+            return;
+        }
+        stop();
         if (session == null || !session.hasActiveTerminalBackend()) return;
 
         session.setCursorBlinkingEnabled(false);
@@ -65,10 +73,12 @@ public final class TerminalCursorBlinker {
             }
         };
         session.setCursorBlinkingEnabled(true);
+        mRunningRate = mBlinkRate;
         mRunnable.run();
     }
 
     public void stop() {
+        mRunningRate = -1;
         if (mRunnable != null) {
             mHandler.removeCallbacks(mRunnable);
             mRunnable = null;
