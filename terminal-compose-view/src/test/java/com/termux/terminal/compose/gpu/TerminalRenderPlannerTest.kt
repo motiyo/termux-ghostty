@@ -206,6 +206,45 @@ class TerminalRenderPlannerTest {
         assertEquals(12L, base.sequence)
     }
 
+    @Test
+    fun plansUnderlineDecorationForUnderlinedCells() {
+        val base = testFrame(17L)
+        val underlined = indexedStyle(3, 0, TextStyle.CHARACTER_ATTRIBUTE_UNDERLINE)
+        val row = TerminalRow(
+            columns = 2,
+            text = "AB".toCharArray(),
+            charsUsed = 2,
+            styles = longArrayOf(underlined, indexedStyle(3, 0)),
+            contentHash = 17L,
+            cellLayout = TerminalCellLayout(
+                start = intArrayOf(0, 1),
+                length = intArrayOf(1, 1),
+                displayWidth = intArrayOf(1, 1)
+            ),
+            isLineWrap = false
+        )
+        val frame = TerminalFrame(
+            sequence = base.sequence,
+            viewport = base.viewport.copy(columns = 2),
+            cursor = base.cursor,
+            modes = base.modes,
+            palette = base.palette,
+            rows = listOf(row),
+            linkLayout = null
+        )
+        val snapshot = GlesTerminalSnapshot(
+            frame = frame,
+            metrics = testSnapshot(17L).metrics
+        )
+
+        val plan = TerminalRenderPlanner().plan(snapshot)
+
+        val decoration = plan.decorations.single()
+        assertEquals(0f, decoration.left, 0f)
+        assertEquals(10f, decoration.right, 0f)
+        assertEquals(underlined, decoration.style)
+    }
+
     private fun scrollFrame(
         sequence: Long,
         topRow: Int,
