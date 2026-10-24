@@ -32,6 +32,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+
       - name: Configure Android SDK
         run: |
           set -euo pipefail
